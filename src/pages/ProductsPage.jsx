@@ -1,4 +1,4 @@
-function ProductsPage({ user, cart, setCart, showToast, setModalOpen }) {
+export default function ProductsPage({ user, cart, setCart, showToast, setModalOpen }) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [sortBy, setSortBy] = useState("default");

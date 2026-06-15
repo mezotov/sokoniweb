@@ -1,4 +1,4 @@
-function CategoryBar({ activeCat, setActiveCat }) {
+export default function CategoryBar({ activeCat, setActiveCat }) {
   return (
     <div className="cat-bar">
       <div className="cat-bar-inner">

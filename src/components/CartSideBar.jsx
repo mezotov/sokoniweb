@@ -1,9 +1,9 @@
-function CartSidebar({ open, setOpen, cart, setCart, showToast }) {
+export default function CartSidebar({ open, setOpen, cart, setCart, showToast }) {
   const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
  
-  function remove(id) { setCart(prev => prev.filter(i => i.id !== id)); }
+export default function remove(id) { setCart(prev => prev.filter(i => i.id !== id)); }
  
-  function checkout() {
+export default  function checkout() {
     showToast("Order placed successfully! 🎉", "success");
     setCart([]);
     setOpen(false);

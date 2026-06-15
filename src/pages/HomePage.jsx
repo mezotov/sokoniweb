@@ -1,4 +1,4 @@
-function HomePage({ user, setModalOpen, cart, setCart, showToast, activeCat, setActiveCat }) {
+export default function HomePage({ user, setModalOpen, cart, setCart, showToast, activeCat, setActiveCat }) {
   const filtered = activeCat === "all" ? PRODUCTS : PRODUCTS.filter(p => p.cat === activeCat);
  
   return (

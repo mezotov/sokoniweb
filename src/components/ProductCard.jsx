@@ -1,7 +1,7 @@
-function ProductCard({ product, user, onAdd, cart, setCart, showToast, setModalOpen }) {
+export default function ProductCard({ product, user, onAdd, cart, setCart, showToast, setModalOpen }) {
   const inCart = cart.find(i => i.id === product.id);
  
-  function handleAdd() {
+export default  function handleAdd() {
     if (!user) { setModalOpen(true); showToast("Please sign in to add items to cart", "warn"); return; }
     if (!inCart) {
       setCart(prev => [...prev, { ...product, qty: product.moq }]);
@@ -9,7 +9,7 @@ function ProductCard({ product, user, onAdd, cart, setCart, showToast, setModalO
     }
   }
  
-  function updateQty(delta) {
+export default function updateQty(delta) {
     setCart(prev => prev.map(i => i.id === product.id
       ? { ...i, qty: Math.max(product.moq, i.qty + delta) }
       : i

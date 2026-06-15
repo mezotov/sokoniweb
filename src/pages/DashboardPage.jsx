@@ -1,4 +1,4 @@
-function DashboardPage({ user }) {
+export default function DashboardPage({ user }) {
   return (
     <div className="dashboard">
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 8 }}>
