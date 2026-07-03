@@ -1,3 +1,8 @@
+import { API_BASE } from "../api/config";
+import { useState, useEffect } from "react";
+import { T } from "../styles/theme";
+import { Eye, EyeOff } from "lucide-react";
+
 export default function AuthModal({ setUser, setModalOpen, showToast }) {
 	const [tab, setTab] = useState("login");
 	const [step, setStep] = useState("form"); // form | otp | success
@@ -7,10 +12,15 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 		phone: "",
 		password: "",
 		confirm: "",
+		role: "retailer",
+		business_name: "", // only matters if supplier
 	});
 	const [otp, setOtp] = useState(["", "", "", "", "", ""]);
 	const [errors, setErrors] = useState({});
-
+	const [showPassword, setShowPassword] = useState(false);
+	const [loading, setLoading] = useState(false);
+	const [showConfirm, setShowConfirm] = useState(false);
+	
 	function set(k, v) {
 		setForm((f) => ({ ...f, [k]: v }));
 	}
@@ -19,35 +29,189 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 		const e = {};
 		if (!form.username.trim()) e.username = "Username required";
 		if (!form.email.includes("@")) e.email = "Valid email required";
-		if (!form.phone.match(/^\+?[\d\s]{9,}$/))
-			e.phone = "Valid phone required";
-		if (form.password.length < 6) e.password = "Min 6 characters";
+		if (!form.phone.match(/^\+?[\d\s]{9,}$/)) e.phone = "Valid phone required";
+
+		// Match backend validate_password exactly
+		if (form.password.length < 8) {
+			e.password = "Password must be at least 8 characters";
+		} else if (!/[A-Z]/.test(form.password)) {
+			e.password = "Password must contain at least one uppercase letter";
+		} else if (!/[0-9]/.test(form.password)) {
+			e.password = "Password must contain at least one number";
+		} else if (!/[!@#$%^&*(),.?":{}|<>]/.test(form.password)) {
+			e.password = "Password must contain at least one special character";
+		}
+
 		if (form.password !== form.confirm) e.confirm = "Passwords don't match";
+		if (form.role === "supplier" && !form.business_name.trim()) {
+        e.business_name = "Business name is required for suppliers";
+    	}
 		setErrors(e);
 		return Object.keys(e).length === 0;
+}
+// Prevent page reload, run validation, and if it passes move to the OTP step
+	async function handleSignup(e) {
+    	e.preventDefault();
+		if (!validateSignup()) return;
+		setLoading(true); //lock the button
+		try {
+			const res = await fetch(`${API_BASE}/auth/signup`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					username: form.username,
+					email:    form.email,
+					phone:    form.phone,
+					password: form.password,
+					role:     form.role,
+					business_name: form.business_name, // only matters if supplier
+				}),
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				showToast(data.error || "Signup failed", "error");
+				return;
+			}
+			showToast(
+            form.role === "supplier"
+                ? "Check your email, then wait for admin approval."
+                : "Check your email for the activation code!",
+            "success"
+        );
+        setStep("otp");
+		} catch {
+			showToast("Network error. Try again.", "error");
+		}
+		finally {
+       	 	setLoading(false);
+    	}
 	}
 
-	function handleSignup(e) {
-		e.preventDefault();
-		if (validateSignup()) setStep("otp");
-	}
+// handle activate/verify0tp
+	async function verifyOtp() {
+		if (loading) return; //prevent double submit
+		const code = otp.join("").trim();
 
-	function handleLogin(e) {
+		if (code.length < 6) {
+			showToast("Enter the full 6-digit code.", "error");
+			return;
+		}
+		setLoading(true); //lock the button
+		try {
+			const res = await fetch(`${API_BASE}/auth/activate`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					email: form.email,
+					code:  code,
+				}),
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				showToast(data.error || "Activation failed", "error");
+				return;
+			}
+			setStep("success");
+			setUser({ email: form.email, username: form.username, role: form.role }); // log them in
+		} catch {
+			showToast("Network error. Try again.", "error");
+		}
+		finally {
+        	setLoading(false);
+    	}
+	}
+//Resend code
+	async function handleResend() {
+		try {
+			const res = await fetch(`${API_BASE}/auth/resend-code`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email: form.email }),
+			});
+			const data = await res.json();
+			showToast(
+				data.email_sent
+					? "New code sent! Check your inbox."
+					: "Could not send email. Try again.",
+				data.email_sent ? "success" : "error"
+			);
+		} catch {
+			showToast("Network error. Try again.", "error");
+		}
+	}
+	useEffect(() => {
+		if (step === "success") {
+			const timer = setTimeout(() => {
+				setModalOpen(false);
+			}, 2000);
+			return () => clearTimeout(timer);
+		}
+	}, [step]);
+
+// validate login form and if it passes, set the user and close the modal
+	async function handleLogin(e) {
+    e.preventDefault();
+
+    if (!form.email.trim()) {
+        setErrors({ email: "Email is required" });
+        return;
+    }
+    if (!form.password) {
+        setErrors({ password: "Password is required" });
+        return;
+    }
+    setLoading(true);
+    try {
+        const res = await fetch(`${API_BASE}/auth/signin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                email:    form.email,
+                password: form.password,
+            }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showToast(data.error || "Sign in failed", "error");
+            return;
+        }
+
+        localStorage.setItem("sokoni_token", data.token);
+        setUser(data.user);
+        setModalOpen(false);
+        showToast(`Welcome back, ${data.user.username}! 👋`, "success");
+
+    } catch {
+        showToast("Network error. Try again.", "error");
+    } finally {
+        setLoading(false);
+    }
+}
+	// forgot password
+	async function handleForgotPassword(e) {
 		e.preventDefault();
-		if (!form.username.trim()) {
-			setErrors({ username: "Required" });
+		if (loading) return; //prevent double submit
+
+		if (!form.email.trim()) {
+			setErrors({ email: "Email is required" });
 			return;
 		}
-		if (!form.password) {
-			setErrors({ password: "Required" });
-			return;
-		}
-		setUser({
-			username: form.username,
-			email: form.email || `${form.username}@sokoni.co.ke`,
-		});
-		setModalOpen(false);
-		showToast(`Welcome back, ${form.username}! 👋`, "success");
+		setLoading(true); //lock the button
+		try {
+			const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email: form.email }),
+			});
+			const data = await res.json();
+			showToast("Check your email for a reset link!", "success"); 
+			setStep("form"); //go back to login form after sending reset link
+		} catch {
+			showToast("Network error. Try again.", "error");
+		} finally {
+        	setLoading(false); //  unlock
+    	}
 	}
 
 	function handleOtpChange(idx, val) {
@@ -58,19 +222,6 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 		if (val && idx < 5) document.getElementById(`otp-${idx + 1}`)?.focus();
 	}
 
-	function verifyOtp() {
-		const code = otp.join("");
-		if (code.length < 6) {
-			showToast("Enter all 6 digits", "warn");
-			return;
-		}
-		setStep("success");
-		setTimeout(() => {
-			setUser({ username: form.username, email: form.email });
-			setModalOpen(false);
-			showToast(`Welcome to Sokoni, ${form.username}! 🎉`, "success");
-		}, 1800);
-	}
 
 	return (
 		<div
@@ -178,11 +329,12 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 									/>
 								))}
 							</div>
-							<button
-								className="btn-full yellow"
-								onClick={verifyOtp}
-							>
-								Verify & Activate Account
+							<button className="btn-full yellow" onClick={verifyOtp} disabled={loading}>
+								{loading ? (
+									<span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+										<span className="spinner spinner-dark" /> Verifying...
+									</span>
+								) : "Verify & Activate Account"}
 							</button>
 							<p
 								style={{
@@ -199,13 +351,60 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 										fontWeight: 600,
 										cursor: "pointer",
 									}}
-									onClick={() =>
-										showToast("Code resent!", "success")
-									}
+									
+									onClick={handleResend}
 								>
 									Resend code
 								</span>
 							</p>
+						</>
+					) : step === "forgot" ?  (
+						<>
+							<div style={{ marginBottom: 20 }}>
+								<h3 style={{
+									color: T.blue,
+									fontFamily: "'Plus Jakarta Sans', sans-serif",
+									fontSize: 18,
+									fontWeight: 800,
+									marginBottom: 6,
+								}}>
+									Reset Password
+								</h3>
+								<p style={{ color: T.gray500, fontSize: 13 }}>
+									Enter your email and we'll send you a reset link.
+								</p>
+							</div>
+							<form onSubmit={handleForgotPassword}>
+								<div className="form-group">
+									<label className="form-label">Email</label>
+									<input
+										type="email"
+										className={`form-input ${errors.email ? "error" : ""}`}
+										placeholder="you@business.co.ke"
+										value={form.email}
+										onChange={(e) => set("email", e.target.value)}
+									/>
+									{errors.email && (
+										<div className="form-error">{errors.email}</div>
+									)}
+								</div>
+								<button type="submit" className="btn-full" disabled={loading}>
+									{loading ? "Sending..." : "Send Reset Link"}
+								</button>
+								<p
+									style={{
+										textAlign: "center",
+										fontSize: 13,
+										color: T.blueLight,
+										fontWeight: 600,
+										cursor: "pointer",
+										marginTop: 16,
+									}}
+									onClick={() => setStep("form")}
+								>
+									← Back to Sign In
+								</p>
+							</form>
 						</>
 					) : (
 						<>
@@ -229,44 +428,50 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 									Create Account
 								</div>
 							</div>
-
+							{/* //signin form */}
 							{tab === "login" ? (
 								<form onSubmit={handleLogin}>
 									<div className="form-group">
-										<label className="form-label">
-											Username
-										</label>
+										<label className="form-label">Email</label>
 										<input
-											className={`form-input ${errors.username ? "error" : ""}`}
-											placeholder="your_username"
-											value={form.username}
-											onChange={(e) =>
-												set("username", e.target.value)
-											}
+											type="email"
+											className={`form-input ${errors.email ? "error" : ""}`}
+											placeholder="you@business.co.ke"
+											value={form.email}
+											onChange={(e) => set("email", e.target.value)}
 										/>
-										{errors.username && (
-											<div className="form-error">
-												{errors.username}
-											</div>
+										{errors.email && (
+											<div className="form-error">{errors.email}</div>
 										)}
 									</div>
 									<div className="form-group">
-										<label className="form-label">
-											Password
-										</label>
-										<input
-											type="password"
-											className={`form-input ${errors.password ? "error" : ""}`}
-											placeholder="••••••••"
-											value={form.password}
-											onChange={(e) =>
-												set("password", e.target.value)
-											}
-										/>
+										<label className="form-label">Password</label>
+										<div style={{ position: "relative" }}>
+											<input
+												type={showPassword ? "text" : "password"}
+												className={`form-input ${errors.password ? "error" : ""}`}
+												placeholder="••••••••"
+												value={form.password}
+												onChange={(e) => set("password", e.target.value)}
+											/>
+											<span
+												onClick={() => setShowPassword(!showPassword)}
+												style={{
+													position: "absolute",
+													right: 12,
+													top: "50%",
+													transform: "translateY(-50%)",
+													cursor: "pointer",
+													color: T.gray500,
+													display: "flex",
+													alignItems: "center",
+												}}
+											>
+												{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+											</span>
+										</div>
 										{errors.password && (
-											<div className="form-error">
-												{errors.password}
-											</div>
+											<div className="form-error">{errors.password}</div>
 										)}
 									</div>
 									<p
@@ -279,11 +484,16 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 											marginBottom: 16,
 											marginTop: -8,
 										}}
+										onClick={() => setStep("forgot")}
 									>
 										Forgot password?
 									</p>
-									<button type="submit" className="btn-full">
-										Sign In to My Account
+									<button type="submit" className="btn-full" disabled={loading}>
+										{loading ? (
+											<span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+												<span className="spinner" /> Signing in...
+											</span>
+										) : "Sign In to My Account"}
 									</button>
 									<div className="divider">
 										<hr />
@@ -310,6 +520,8 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 										</span>
 									</p>
 								</form>
+
+								// signup form
 							) : (
 								<form onSubmit={handleSignup}>
 									<div className="form-group">
@@ -375,45 +587,108 @@ export default function AuthModal({ setUser, setModalOpen, showToast }) {
 										<label className="form-label">
 											Password
 										</label>
-										<input
-											type="password"
-											className={`form-input ${errors.password ? "error" : ""}`}
-											placeholder="Min 6 characters"
-											value={form.password}
+										<div style={{ position: "relative" }}>
+											<input
+												type={showPassword ? "text" : "password"}
+												className={`form-input ${errors.password ? "error" : ""}`}
+												placeholder="Min 8 characters"
+												value={form.password}
 											onChange={(e) =>
 												set("password", e.target.value)
 											}
-										/>
-										{errors.password && (
-											<div className="form-error">
-												{errors.password}
-											</div>
-										)}
+											/>
+											<span
+												onClick={() => setShowPassword(!showPassword)}
+												style={{
+													position: "absolute",
+													right: 12,
+													top: "50%",
+													transform: "translateY(-50%)",
+													cursor: "pointer",
+													color: T.gray500,
+													display: "flex",
+													alignItems: "center",
+												}}
+											>
+												{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+											</span>
+											{errors.password && (
+												<div className="form-error">
+													{errors.password}
+												</div>
+											)}
+										</div>
 									</div>
 									<div className="form-group">
 										<label className="form-label">
 											Confirm Password
 										</label>
-										<input
-											type="password"
-											className={`form-input ${errors.confirm ? "error" : ""}`}
-											placeholder="Repeat password"
-											value={form.confirm}
-											onChange={(e) =>
+										<div style={{ position: "relative" }}>
+											<input
+												type={showConfirm ? "text" : "password"}
+												className={`form-input ${errors.confirm ? "error" : ""}`}
+												placeholder="Repeat password"
+												value={form.confirm}
+												onChange={(e) =>
 												set("confirm", e.target.value)
-											}
-										/>
-										{errors.confirm && (
-											<div className="form-error">
-												{errors.confirm}
-											</div>
-										)}
+												}
+											/>
+											<span
+												onClick={() => setShowConfirm(!showConfirm)}
+												style={{
+													position: "absolute",
+													right: 12,
+													top: "50%",
+													transform: "translateY(-50%)",
+													cursor: "pointer",
+													color: T.gray500,
+													display: "flex",
+													alignItems: "center",
+												}}
+											>
+												{showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+											</span>
+										</div>
 									</div>
-									<button
-										type="submit"
-										className="btn-full yellow"
-									>
-										Create Account & Get Code
+									<div className="role-toggle">
+										<button
+											type="button"
+											className={form.role === "retailer" ? "active" : ""}
+											onClick={() => set("role", "retailer")}
+										>
+											Retailer
+										</button>
+										<button
+											type="button"
+											className={form.role === "supplier" ? "active" : ""}
+											onClick={() => set("role", "supplier")}
+										>
+											Supplier
+										</button>
+									</div>
+									{form.role === "supplier" && (
+										<div className="form-group">
+											<label className="form-label">Business Name</label>
+											<input
+												className={`form-input ${errors.business_name ? "error" : ""}`}
+												placeholder="e.g. Kamau Wholesalers Ltd"
+												value={form.business_name}
+												onChange={(e) => set("business_name", e.target.value)}
+											/>
+											{errors.business_name && (
+												<div className="form-error">{errors.business_name}</div>
+											)}
+											<div className="form-hint">
+												Suppliers require admin approval before ordering
+											</div>
+										</div>
+									)}
+									<button type="submit" className="btn-full yellow" disabled={loading}>
+										{loading ? (
+											<span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+												<span className="spinner spinner-dark" /> Creating account...
+											</span>
+										) : "Create Account & Get Code"}
 									</button>
 									<p
 										style={{

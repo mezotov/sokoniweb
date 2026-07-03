@@ -103,13 +103,13 @@ export const css = `
   .qty-num { font-size: 15px; font-weight: 700; color: ${T.blue}; min-width: 24px; text-align: center; }
  
   /* MODAL OVERLAY */
-  .overlay { position: fixed; inset: 0; background: rgba(10,46,110,0.55); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal { background: ${T.white}; border-radius: 20px; width: 100%; max-width: 440px; overflow: hidden; box-shadow: 0 24px 80px rgba(10,46,110,0.22); }
+  .overlay { position: fixed; inset: 0; background: rgba(10,46,110,0.55); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+  .modal { background: ${T.white}; border-radius: 20px; width: 100%; max-width: 440px; overflow: hidden; box-shadow: 0 24px 80px rgba(10,46,110,0.22); margin: auto; }
   .modal-header { background: ${T.blue}; padding: 28px 32px 24px; text-align: center; }
   .modal-logo { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 28px; color: ${T.yellow}; }
   .modal-logo span { color: ${T.white}; }
   .modal-tagline { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 4px; }
-  .modal-body { padding: 28px 32px; }
+  .modal-body { padding: 28px 32px; overflow-y: auto; }
   .modal-tabs { display: flex; border-bottom: 2px solid ${T.gray100}; margin-bottom: 24px; }
   .modal-tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 600; color: ${T.gray500}; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
   .modal-tab.active { color: ${T.blue}; border-bottom-color: ${T.yellow}; }
@@ -134,7 +134,13 @@ export const css = `
   .modal-close:hover { color: ${T.white}; }
   .modal-header-wrap { position: relative; }
   .success-icon { width: 64px; height: 64px; border-radius: 50%; background: ${T.success}; color: ${T.white}; font-size: 30px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
- 
+  
+  /* ROLE TOGGLE */
+  .role-toggle { display: flex; gap: 10px; margin-bottom: 16px; }
+  .role-toggle button { flex: 1; padding: 10px; border: 2px solid ${T.gray300}; border-radius: 8px; background: ${T.white}; font-size: 14px; font-weight: 600; color: ${T.gray500}; transition: all 0.2s; }
+  .role-toggle button:hover { border-color: ${T.blueLight}; color: ${T.blueLight}; }
+  .role-toggle button.active { border-color: ${T.blue}; background: ${T.blue}; color: ${T.white}; }
+  
   /* CART SIDEBAR */
   .cart-sidebar { position: fixed; right: 0; top: 0; bottom: 0; width: 380px; background: ${T.white}; box-shadow: -8px 0 40px rgba(10,46,110,0.15); z-index: 300; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); }
   .cart-sidebar.open { transform: translateX(0); }
@@ -193,6 +199,9 @@ export const css = `
   .toast { position: fixed; bottom: 28px; right: 28px; background: ${T.blue}; color: ${T.white}; padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 500; box-shadow: 0 8px 32px rgba(10,46,110,0.22); display: flex; align-items: center; gap: 10px; animation: slideIn 0.25s ease; }
   .toast.success { border-left: 4px solid ${T.success}; }
   .toast.warn { border-left: 4px solid ${T.yellow}; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; display: inline-block; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  .spinner-dark { border: 2px solid rgba(10,46,110,0.2); border-top: 2px solid ${T.blue}; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
  
   /* PRODUCTS PAGE */
