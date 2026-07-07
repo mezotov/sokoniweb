@@ -1,6 +1,6 @@
 import { API_BASE } from "./api/config";
 import { useState, useEffect, useRef } from "react";
-import { fetchCategories } from "./api/product";
+// import { fetchCategories } from "./api/product";
 import {
 	BrowserRouter,
 	Routes,
@@ -12,7 +12,6 @@ import {
 import { css } from "./styles/globalStyles";
 
 import Navbar from "./components/Navbar";
-import CategoryBar from "./components/CategoryBar";
 import CartSidebar from "./components/CartSidebar";
 import Toast from "./components/Toast";
 import Footer from "./components/Footer";
@@ -53,7 +52,6 @@ function InnerApp() {
 	const [authChecked, setAuthChecked] = useState(false);
 	const [loggingOut, setLoggingOut] = useState(false);
 
-	const [categories, setCategories] = useState([]);
 	const authFetched = useRef(false);
 
 	const isSupplierPortal = location.pathname.startsWith("/supplier");
@@ -76,14 +74,14 @@ function InnerApp() {
 		}
 	}, [user, location.pathname, authChecked]);
 
-	useEffect(() => {
-		fetchCategories().then(data => {
-			if (data) setCategories([
-				{ category_id: "all", name: "All", slug: "all" },
-				...data.categories,
-			]);
-		});
-	}, []);
+	// useEffect(() => {
+	// 	fetchCategories().then(data => {
+	// 		if (data) setCategories([
+	// 			{ category_id: "all", name: "All", slug: "all" },
+	// 			...data.categories,
+	// 		]);
+	// 	});
+	// }, []);
 
 	useEffect(() => {
 		if (authFetched.current) return;
@@ -187,13 +185,13 @@ function InnerApp() {
 				/>
 			)}
 
-			{!isSupplierPortal && !isRetailerPortal && !location.pathname.startsWith("/admin") && (
+			{/* {!isSupplierPortal && !isRetailerPortal && !location.pathname.startsWith("/admin") && (
 				<CategoryBar
 					activeCat={activeCat}
 					setActiveCat={handleCatClick}
 					categories={categories}
 				/>
-			)}
+			)} */}
 
 			<Routes>
 				<Route
@@ -205,8 +203,6 @@ function InnerApp() {
 							cart={cart}
 							setCart={setCart}
 							showToast={showToast}
-							activeCat={activeCat}
-							setActiveCat={handleCatClick}
 						/>
 					}
 				/>
